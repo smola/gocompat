@@ -6,8 +6,7 @@ import (
 	"go/types"
 	"reflect"
 
-	"golang.org/x/tools/go/loader"
-	"gopkg.in/src-d/go-log.v1"
+	"golang.org/x/tools/go/packages"
 )
 
 // ReachableFromPackages gets all top-level exported types.Object reachable from
@@ -43,20 +42,17 @@ func (r *reachability) GetReachable() []types.Object {
 }
 
 func (r *reachability) FromPackages(pkgs ...string) error {
-	var conf loader.Config
-	_, err := conf.FromArgs(pkgs, false)
+	conf := &packages.Config{
+		Mode:  packages.LoadTypes,
+		Tests: false,
+	}
+
+	loadedPackages, err := packages.Load(conf, pkgs...)
 	if err != nil {
-		log.Errorf(err, "creating load configuration")
 		return err
 	}
 
-	prog, err := conf.Load()
-	if err != nil {
-		log.Errorf(err, "loading packages")
-		return err
-	}
-
-	for _, pkg := range prog.InitialPackages() {
+	for _, pkg := range loadedPackages {
 		if err := r.fromPackage(pkg); err != nil {
 			return err
 		}
@@ -65,19 +61,19 @@ func (r *reachability) FromPackages(pkgs ...string) error {
 	return nil
 }
 
-func (r *reachability) fromPackage(pkg *loader.PackageInfo) error {
-	if !pkg.TransitivelyErrorFree {
+func (r *reachability) fromPackage(pkg *packages.Package) error {
+	if len(pkg.Errors) > 0 {
 		return fmt.Errorf("has errors")
 	}
 
-	scope := pkg.Pkg.Scope()
+	scope := pkg.Types.Scope()
 	for _, name := range scope.Names() {
 		if !ast.IsExported(name) {
 			continue
 		}
 
 		obj := scope.Lookup(name)
-		if err := r.reachFromObject(pkg.Pkg, obj); err != nil {
+		if err := r.reachFromObject(pkg.Types, obj); err != nil {
 			return err
 		}
 	}

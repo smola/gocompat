@@ -15,5 +15,5 @@ require (
 	golang.org/x/tools v0.0.0-20181130052023-1c3d964395ce
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/src-d/go-cli.v0 v0.0.0-20181105080154-d492247bbc0d
-	gopkg.in/src-d/go-log.v1 v1.0.1
+	gopkg.in/src-d/go-log.v1 v1.0.1 // indirect
 )
