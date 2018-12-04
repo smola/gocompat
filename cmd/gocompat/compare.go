@@ -54,6 +54,7 @@ func (c compareCommand) Execute(args []string) error {
 		return err
 	}
 
+	changed := false
 	changes := compat.Compare(fromReachable, toReachable)
 	for _, change := range changes {
 		if excluded[change.Type] {
@@ -82,8 +83,14 @@ func (c compareCommand) Execute(args []string) error {
 			continue
 		}
 
+		changed = true
 		fmt.Println(change)
 	}
+
+	if changed {
+		return fmt.Errorf("found backwards incompatible changes")
+	}
+
 	return nil
 }
 
