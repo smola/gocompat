@@ -9,42 +9,51 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// ReachableFromPackages gets all top-level exported types.Object reachable from
-// the given list of package paths.
-func ReachableFromPackages(pkgs ...string) ([]types.Object, error) {
+// API
+type API struct {
+	// Packages included directly in the API.
+	Packages []*types.Package
+	// Reachable is the set of all objects that are reachable from the API.
+	Reachable map[types.Object]bool
+}
+
+// NewAPI creates an empty API.
+func NewAPI() *API {
+	return &API{
+		Reachable: make(map[types.Object]bool),
+	}
+}
+
+// ReachableFromPackages gets an API given list of package paths.
+func ReachableFromPackages(pkgs ...string) (*API, error) {
+	return reachableFromPackages(false, pkgs...)
+}
+
+func reachableFromPackages(tests bool, pkgs ...string) (*API, error) {
 	r := newReachability()
-	if err := r.FromPackages(pkgs...); err != nil {
+	if err := r.FromPackages(tests, pkgs...); err != nil {
 		return nil, err
 	}
 
-	return r.GetReachable(), nil
+	return r.API, nil
 }
 
 type reachability struct {
-	seen      map[types.Type]bool
-	reachable map[types.Object]bool
+	API  *API
+	seen map[types.Type]bool
 }
 
 func newReachability() *reachability {
 	return &reachability{
-		seen:      make(map[types.Type]bool),
-		reachable: make(map[types.Object]bool),
+		API:  NewAPI(),
+		seen: make(map[types.Type]bool),
 	}
 }
 
-func (r *reachability) GetReachable() []types.Object {
-	result := make([]types.Object, 0, len(r.reachable))
-	for obj := range r.reachable {
-		result = append(result, obj)
-	}
-
-	return result
-}
-
-func (r *reachability) FromPackages(pkgs ...string) error {
+func (r *reachability) FromPackages(tests bool, pkgs ...string) error {
 	conf := &packages.Config{
 		Mode:  packages.LoadTypes,
-		Tests: false,
+		Tests: tests,
 	}
 
 	loadedPackages, err := packages.Load(conf, pkgs...)
@@ -53,6 +62,7 @@ func (r *reachability) FromPackages(pkgs ...string) error {
 	}
 
 	for _, pkg := range loadedPackages {
+		r.API.Packages = append(r.API.Packages, pkg.Types)
 		if err := r.fromPackage(pkg); err != nil {
 			return err
 		}
@@ -73,7 +83,7 @@ func (r *reachability) fromPackage(pkg *packages.Package) error {
 		}
 
 		obj := scope.Lookup(name)
-		if err := r.reachFromObject(pkg.Types, obj); err != nil {
+		if err := r.reachFromObject(obj); err != nil {
 			return err
 		}
 	}
@@ -81,20 +91,22 @@ func (r *reachability) fromPackage(pkg *packages.Package) error {
 	return nil
 }
 
-func (r *reachability) reachFromObject(pkg *types.Package, obj types.Object) error {
-	if r.reachable[obj] {
-		return nil
-	}
-	r.reachable[obj] = true
-
-	if !obj.Exported() {
+func (r *reachability) reachFromObject(obj types.Object) error {
+	if obj.Pkg() == nil {
 		return nil
 	}
 
-	return r.reachFromType(pkg, obj.Type())
+	if obj.Parent() != nil {
+		if r.API.Reachable[obj] {
+			return nil
+		}
+		r.API.Reachable[obj] = true
+	}
+
+	return r.reachFromType(obj.Type())
 }
 
-func (r *reachability) reachFromType(pkg *types.Package, typ types.Type) error {
+func (r *reachability) reachFromType(typ types.Type) error {
 	if r.seen[typ] {
 		return nil
 	}
@@ -102,69 +114,68 @@ func (r *reachability) reachFromType(pkg *types.Package, typ types.Type) error {
 
 	switch typ := typ.(type) {
 	case *types.Named:
-		obj := typ.Obj()
-		opkg := obj.Pkg()
-		if opkg == nil {
-			return nil
-		}
-
-		if opkg != pkg {
-			return r.reachFromObject(opkg, obj)
-		}
-
-		if !typ.Obj().Exported() {
-			return nil
+		if err := r.reachFromObject(typ.Obj()); err != nil {
+			return err
 		}
 
 		for i := 0; i < typ.NumMethods(); i++ {
 			m := typ.Method(i)
-			if err := r.reachFromType(pkg, m.Type()); err != nil {
+			if err := r.reachFromObject(m); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	case *types.Pointer:
-		return r.reachFromType(pkg, typ.Elem())
+		return r.reachFromType(typ.Elem())
 	case *types.Struct:
 		for i := 0; i < typ.NumFields(); i++ {
 			f := typ.Field(i)
-			if !f.Exported() {
-				continue
-			}
-
-			if err := r.reachFromType(pkg, f.Type()); err != nil {
+			if err := r.reachFromObject(f); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	case *types.Signature:
-		if err := r.reachFromType(pkg, typ.Params()); err != nil {
+		if err := r.reachFromType(typ.Params()); err != nil {
 			return err
 		}
 
-		return r.reachFromType(pkg, typ.Results())
+		return r.reachFromType(typ.Results())
 	case *types.Tuple:
 		for i := 0; i < typ.Len(); i++ {
 			f := typ.At(i)
-			if err := r.reachFromType(pkg, f.Type()); err != nil {
+			if err := r.reachFromObject(f); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	case *types.Slice:
-		return r.reachFromType(pkg, typ.Elem())
+		return r.reachFromType(typ.Elem())
 	case *types.Map:
-		if err := r.reachFromType(pkg, typ.Key()); err != nil {
+		if err := r.reachFromType(typ.Key()); err != nil {
 			return err
 		}
 
-		return r.reachFromType(pkg, typ.Elem())
+		return r.reachFromType(typ.Elem())
 	case *types.Basic:
 		return nil
+	case *types.Array:
+		return r.reachFromType(typ.Elem())
+	case *types.Chan:
+		return r.reachFromType(typ.Elem())
+	case *types.Interface:
+		for i := 0; i < typ.NumMethods(); i++ {
+			f := typ.Method(i)
+			if err := r.reachFromObject(f); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	default:
-		return fmt.Errorf("unhandled type: %f", reflect.TypeOf(typ))
+		return fmt.Errorf("unhandled type: %s", reflect.TypeOf(typ))
 	}
 }
