@@ -73,7 +73,7 @@ func (r *reachability) FromPackages(tests bool, pkgs ...string) error {
 
 func (r *reachability) fromPackage(pkg *packages.Package) error {
 	if len(pkg.Errors) > 0 {
-		return fmt.Errorf("has errors")
+		return fmt.Errorf("has errors: %s", pkg.Errors[0])
 	}
 
 	scope := pkg.Types.Scope()
