@@ -18,6 +18,7 @@ type compareCommand struct {
 	cli.Command    `name:"compare" short-desc:"List all symbols reachable from a package."`
 	Exclude        []string `long:"exclude" description:"excluded change type"`
 	ExcludePackage []string `long:"exclude-package" description:"excluded package"`
+	ExcludeSymbol  []string `long:"exclude-symbol" description:"excluded symbol" unquote:"false"`
 	Positional     struct {
 		From     string   `positiona-arg-name:"from" description:"from git reference"`
 		To       string   `positiona-arg-name:"to" description:"to git reference"`
@@ -33,7 +34,6 @@ func (c compareCommand) Execute(args []string) error {
 			return err
 		}
 
-		fmt.Println("EXCLUDE:", c)
 		excluded[c] = true
 	}
 
@@ -64,6 +64,16 @@ func (c compareCommand) Execute(args []string) error {
 		for _, pkg := range c.ExcludePackage {
 			prefix := fmt.Sprintf(`"%s"`, pkg)
 			if strings.HasPrefix(change.Symbol, prefix) {
+				exclude = true
+				break
+			}
+		}
+		if exclude {
+			continue
+		}
+
+		for _, sym := range c.ExcludeSymbol {
+			if change.Symbol == sym {
 				exclude = true
 				break
 			}
