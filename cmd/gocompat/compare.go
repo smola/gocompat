@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	compat "github.com/smola/gocompat"
 	"gopkg.in/src-d/go-cli.v0"
@@ -14,8 +15,10 @@ func init() {
 }
 
 type compareCommand struct {
-	cli.Command `name:"compare" short-desc:"List all symbols reachable from a package."`
-	Positional  struct {
+	cli.Command    `name:"compare" short-desc:"List all symbols reachable from a package."`
+	Exclude        []string `long:"exclude" description:"excluded change type"`
+	ExcludePackage []string `long:"exclude-package" description:"excluded package"`
+	Positional     struct {
 		From     string   `positiona-arg-name:"from" description:"from git reference"`
 		To       string   `positiona-arg-name:"to" description:"to git reference"`
 		Packages []string `positional-arg-name:"package" description:"Package to start from."`
@@ -23,6 +26,17 @@ type compareCommand struct {
 }
 
 func (c compareCommand) Execute(args []string) error {
+	excluded := make(map[compat.ChangeType]bool)
+	for _, e := range c.Exclude {
+		c, err := compat.ChangeTypeFromString(e)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("EXCLUDE:", c)
+		excluded[c] = true
+	}
+
 	if err := gitCheckout(c.Positional.From); err != nil {
 		return err
 	}
@@ -42,6 +56,22 @@ func (c compareCommand) Execute(args []string) error {
 
 	changes := compat.Compare(fromReachable, toReachable)
 	for _, change := range changes {
+		if excluded[change.Type] {
+			continue
+		}
+
+		exclude := false
+		for _, pkg := range c.ExcludePackage {
+			prefix := fmt.Sprintf(`"%s"`, pkg)
+			if strings.HasPrefix(change.Symbol, prefix) {
+				exclude = true
+				break
+			}
+		}
+		if exclude {
+			continue
+		}
+
 		fmt.Println(change)
 	}
 	return nil
