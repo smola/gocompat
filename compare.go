@@ -100,7 +100,7 @@ func compareTypes(obj types.Object, a, b types.Type) []Change {
 				Symbol: symbolName(obj),
 			})
 		}
-	case *types.Basic, *types.Map, *types.Slice, *types.Array:
+	case *types.Basic, *types.Map, *types.Slice, *types.Array, *types.Pointer:
 		if basicType(a) != basicType(bUnderlying) {
 			changes = append(changes, Change{
 				Type:   TypeChanged,
