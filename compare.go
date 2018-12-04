@@ -86,7 +86,7 @@ func compareTypes(obj types.Object, a, b types.Type) []Change {
 	case *types.Struct:
 		changes = append(changes, compareStruct(obj, a, bUnderlying.(*types.Struct))...)
 	case *types.Signature:
-		if a != bUnderlying.(*types.Signature) {
+		if !signaturesAreEqual(a, bUnderlying.(*types.Signature)) {
 			changes = append(changes, Change{
 				Type:   SignatureChanged,
 				Symbol: symbolName(obj),
@@ -101,7 +101,7 @@ func compareTypes(obj types.Object, a, b types.Type) []Change {
 			})
 		}
 	case *types.Basic, *types.Map, *types.Slice, *types.Array:
-		if !types.Identical(a, b) {
+		if basicType(a) != basicType(bUnderlying) {
 			changes = append(changes, Change{
 				Type:   TypeChanged,
 				Symbol: symbolName(obj),
@@ -133,7 +133,7 @@ func compareAliases(obj types.Object, a, b *types.TypeName) []Change {
 	return nil
 }
 
-func basicType(a types.Type) string {
+func basicType(a fmt.Stringer) string {
 	str := a.String()
 	idx := strings.Index(str, "{")
 	if idx != -1 {
@@ -205,6 +205,33 @@ type methoder interface {
 	Method(int) *types.Func
 }
 
+func signaturesAreEqualForFunc(a, b *types.Func) bool {
+	asig := a.Type().(*types.Signature)
+	bsig := b.Type().(*types.Signature)
+	return signaturesAreEqual(asig, bsig)
+}
+
+func signaturesAreEqual(a, b *types.Signature) bool {
+	return tuplesAreEqual(a.Params(), b.Params()) &&
+		tuplesAreEqual(a.Results(), b.Results())
+}
+
+func tuplesAreEqual(a, b *types.Tuple) bool {
+	if a.Len() != b.Len() {
+		return false
+	}
+
+	for i := 0; i < a.Len(); i++ {
+		ael := a.At(i)
+		bel := b.At(i)
+		if basicType(ael.Type()) != basicType(bel.Type()) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func compareMethods(exportedOnly bool, obj types.Object, a, b methoder) []Change {
 	var changes []Change
 	for i := 0; i < a.NumMethods(); i++ {
@@ -217,7 +244,7 @@ func compareMethods(exportedOnly bool, obj types.Object, a, b methoder) []Change
 			bMethod := b.Method(j)
 			if aMethod.Name() == bMethod.Name() {
 				found = true
-				if aMethod.Type() != bMethod.Type() {
+				if !signaturesAreEqualForFunc(aMethod, bMethod) {
 					changes = append(changes, Change{
 						Type:   MethodSignatureChanged,
 						Symbol: symbolName(obj, aMethod),

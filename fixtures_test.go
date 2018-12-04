@@ -61,9 +61,9 @@ type Named1 int
 
 type Named2 string
 
-type Named3 = StructA3
+type Named3 StructA3
 
-type Named4 = StructA5
+type Named4 StructA5
 
 func Func1() {}
 
@@ -80,6 +80,8 @@ func Func6(arg1 string, arg2 int) int { return 0 }
 func Func7(arg1 string, arg2 int) (string, int) { return "", 0 }
 
 func Func8(arg1 ...string) {}
+
+func Func9(arg1 StructA5) {}
 
 type StructB1 struct{}
 

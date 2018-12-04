@@ -237,3 +237,30 @@ func TestCompareObjects(t *testing.T) {
 		})
 	}
 }
+
+type FixtureBasicTypeObjects struct {
+	Name   string
+	Result string
+}
+
+var FixturesBasicTypeObjects = []FixtureBasicTypeObjects{{
+	Name:   "StructA1",
+	Result: "type github.com/smola/gocompat.StructA1 struct",
+}, {
+	Name:   "Named1",
+	Result: "type github.com/smola/gocompat.Named1 int",
+}, {
+	Name:   "Named3",
+	Result: "type github.com/smola/gocompat.Named3 struct",
+}}
+
+func TestBasicTypeObjects(t *testing.T) {
+	for _, f := range FixturesBasicTypeObjects {
+		t.Run(f.Name, func(t *testing.T) {
+			require := require.New(t)
+			obj, ok := FixtureObjects[f.Name]
+			require.True(ok)
+			require.Equal(f.Result, basicType(obj))
+		})
+	}
+}
