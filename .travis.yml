@@ -33,3 +33,5 @@ jobs:
         file_glob: true
         file: gocompat_*.tar.gz
         skip_cleanup: true
+        on:
+          tags: true
