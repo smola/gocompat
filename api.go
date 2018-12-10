@@ -4,6 +4,8 @@ import (
 	"go/types"
 )
 
+//go:generate easyjson -all api.go
+
 // API
 type API struct {
 	// Packages included directly in the API.
