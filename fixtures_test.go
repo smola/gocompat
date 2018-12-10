@@ -7,17 +7,20 @@ import (
 )
 
 func init() {
-	api, err := reachableFromPackages(true, "file=fixtures_test.go")
+	conf := &packages.Config{
+		Mode:  packages.LoadTypes,
+		Tests: true,
+	}
+
+	loadedPackages, err := packages.Load(conf, "file=fixtures_test.go")
 	if err != nil {
 		panic(err)
 	}
 
-	if len(api.Reachable) == 0 {
-		panic("no objects parsed")
-	}
-
 	FixtureObjects = make(map[string]types.Object)
-	for obj := range api.Reachable {
+	scope := loadedPackages[0].Types.Scope()
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
 		FixtureObjects[obj.Name()] = obj
 	}
 }

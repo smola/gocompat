@@ -26,8 +26,8 @@ func (c reachCommand) Execute(args []string) error {
 	}
 
 	var reachedString []string
-	for r := range api.Reachable {
-		str := fmt.Sprintf("\"%s\".%s", r.Pkg().Path(), r.Name())
+	for _, obj := range api.Reachable {
+		str := fmt.Sprintf("\"%s\".%s", obj.Symbol.Package, obj.Symbol.Name)
 		reachedString = append(reachedString, str)
 	}
 

@@ -9,21 +9,6 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-// API
-type API struct {
-	// Packages included directly in the API.
-	Packages []*types.Package
-	// Reachable is the set of all objects that are reachable from the API.
-	Reachable map[types.Object]bool
-}
-
-// NewAPI creates an empty API.
-func NewAPI() *API {
-	return &API{
-		Reachable: make(map[types.Object]bool),
-	}
-}
-
 // ReachableFromPackages gets an API given list of package paths.
 func ReachableFromPackages(pkgs ...string) (*API, error) {
 	return reachableFromPackages(false, pkgs...)
@@ -39,14 +24,16 @@ func reachableFromPackages(tests bool, pkgs ...string) (*API, error) {
 }
 
 type reachability struct {
-	API  *API
-	seen map[types.Type]bool
+	API       *API
+	reachable map[types.Object]bool
+	seen      map[types.Type]bool
 }
 
 func newReachability() *reachability {
 	return &reachability{
-		API:  NewAPI(),
-		seen: make(map[types.Type]bool),
+		API:       NewAPI(),
+		reachable: make(map[types.Object]bool),
+		seen:      make(map[types.Type]bool),
 	}
 }
 
@@ -62,18 +49,22 @@ func (r *reachability) FromPackages(tests bool, pkgs ...string) error {
 	}
 
 	for _, pkg := range loadedPackages {
-		r.API.Packages = append(r.API.Packages, pkg.Types)
-		if err := r.fromPackage(pkg); err != nil {
+		pkg, err := r.fromPackage(pkg)
+		if err != nil {
 			return err
 		}
+
+		r.API.Packages = append(r.API.Packages, pkg)
 	}
 
 	return nil
 }
 
-func (r *reachability) fromPackage(pkg *packages.Package) error {
+func (r *reachability) fromPackage(pkg *packages.Package) (*Package, error) {
+	mypkg := NewPackage(pkg.Types.Path())
+
 	if len(pkg.Errors) > 0 {
-		return fmt.Errorf("has errors: %s", pkg.Errors[0])
+		return nil, fmt.Errorf("has errors: %s", pkg.Errors[0])
 	}
 
 	scope := pkg.Types.Scope()
@@ -83,12 +74,14 @@ func (r *reachability) fromPackage(pkg *packages.Package) error {
 		}
 
 		obj := scope.Lookup(name)
+		mypkg.Objects[name] = ConvertObject(obj)
+
 		if err := r.reachFromObject(obj); err != nil {
-			return err
+			return mypkg, err
 		}
 	}
 
-	return nil
+	return mypkg, nil
 }
 
 func (r *reachability) reachFromObject(obj types.Object) error {
@@ -97,10 +90,12 @@ func (r *reachability) reachFromObject(obj types.Object) error {
 	}
 
 	if obj.Parent() != nil {
-		if r.API.Reachable[obj] {
+		if r.reachable[obj] {
 			return nil
 		}
-		r.API.Reachable[obj] = true
+		r.reachable[obj] = true
+		cobj := ConvertObject(obj)
+		r.API.Reachable = append(r.API.Reachable, cobj)
 	}
 
 	return r.reachFromType(obj.Type())
