@@ -4,21 +4,18 @@ import (
 	"fmt"
 	"go/types"
 	"reflect"
-	"strings"
 )
 
 func Compare(a, b *API) []Change {
 	var changes []Change
-	checked := make(map[types.Object]bool)
+	checked := make(map[*Object]bool)
 
 	//TODO: check added symbols to package
 	for _, apkg := range a.Packages {
-		ascope := apkg.Scope()
 		found := false
 		for _, bpkg := range b.Packages {
-			if apkg.Path() == bpkg.Path() {
-				bscope := bpkg.Scope()
-				changes = append(changes, compareScopes(checked, ascope, bscope)...)
+			if apkg.Path == bpkg.Path {
+				changes = append(changes, comparePackages(checked, apkg, bpkg)...)
 				found = true
 				break
 			}
@@ -27,55 +24,47 @@ func Compare(a, b *API) []Change {
 		if !found {
 			changes = append(changes, Change{
 				Type:   PackageDeleted,
-				Symbol: fmt.Sprintf(`"%s"`, apkg.Path()),
+				Symbol: fmt.Sprintf(`"%s"`, apkg.Path),
 			})
 		}
 	}
 
-	for aobj := range a.Reachable {
-		found := false
-		for bobj := range b.Reachable {
-			if aobj.Pkg().Path() == bobj.Pkg().Path() && aobj.Name() == bobj.Name() {
-				changes = append(changes, CompareObjects(aobj, bobj)...)
-				found = true
-				break
-			}
+	for _, aobj := range a.Reachable {
+		bobj := b.LookupSymbol(&aobj.Symbol)
+		if bobj == nil {
+			//TODO: not reachable anymore!
+			continue
 		}
 
-		if !found {
-			//TODO: not reachable anymore!
-		}
+		changes = append(changes, CompareObjects(aobj, bobj)...)
 	}
 
 	return changes
 }
 
-func compareScopes(checked map[types.Object]bool, a, b *types.Scope) []Change {
+func comparePackages(checked map[*Object]bool, a, b *Package) []Change {
 	var result []Change
-	for _, name := range a.Names() {
-		aobj := a.Lookup(name)
+	for name, aobj := range a.Objects {
 		checked[aobj] = true
-		bobj := b.Lookup(name)
-		if bobj == nil {
-			result = append(result, Change{
-				Type:   SymbolDeleted,
-				Symbol: symbolName(aobj),
-			})
+		bobj, ok := b.Objects[name]
+		if ok {
+			result = append(result, CompareObjects(aobj, bobj)...)
 			continue
 		}
 
-		result = append(result, CompareObjects(aobj, bobj)...)
+		result = append(result, Change{
+			Type:   SymbolDeleted,
+			Symbol: symbolName(aobj),
+		})
 	}
 
-	for _, name := range b.Names() {
-		aobj := a.Lookup(name)
-		bobj := b.Lookup(name)
-		if aobj == nil {
+	for name, bobj := range b.Objects {
+		_, ok := a.Objects[name]
+		if !ok {
 			result = append(result, Change{
 				Type:   SymbolAdded,
 				Symbol: symbolName(bobj),
 			})
-			continue
 		}
 	}
 
@@ -83,121 +72,94 @@ func compareScopes(checked map[types.Object]bool, a, b *types.Scope) []Change {
 }
 
 // CompareObjects compares two objects and reports backwards incompatible changes.
-func CompareObjects(a, b types.Object) []Change {
-	if a, ok := a.(*types.TypeName); ok && a.IsAlias() {
-		return compareAliases(a, a, b.(*types.TypeName))
+func CompareObjects(a, b *Object) []Change {
+	if a.Type == AliasDeclaration {
+		return compareAliases(a, b)
 	}
 
-	return compareTypes(a, a.Type(), b.Type())
+	return compareTypes(a, b)
 }
 
-func symbolName(parent types.Object, children ...types.Object) string {
-	str := fmt.Sprintf(`"%s".%s`, parent.Pkg().Path(), parent.Name())
+func symbolName(parent *Object, children ...string) string {
+	str := fmt.Sprintf(`"%s".%s`, parent.Symbol.Package, parent.Symbol.Name)
 	for _, child := range children {
-		str += fmt.Sprintf(".%s", child.Name())
+		str += fmt.Sprintf(".%s", child)
 	}
 	return str
 }
 
-func compareTypes(obj types.Object, a, b types.Type) []Change {
+func compareTypes(a, b *Object) []Change {
 	var changes []Change
-	aUnderlying := a.Underlying()
-	bUnderlying := b.Underlying()
 
-	if basicType(aUnderlying) != basicType(bUnderlying) {
+	if a.Definition.Type != b.Definition.Type || a.Symbol != b.Symbol {
 		changes = append(changes, Change{
 			Type:   TypeChanged,
-			Symbol: symbolName(obj),
+			Symbol: symbolName(a),
 		})
 		return changes
 	}
 
-	switch a := aUnderlying.(type) {
-	case *types.Struct:
-		changes = append(changes, compareStruct(obj, a, bUnderlying.(*types.Struct))...)
-	case *types.Signature:
-		if !signaturesAreEqual(a, bUnderlying.(*types.Signature)) {
+	switch a.Definition.Type {
+	case StructType:
+		changes = append(changes, compareStruct(a, b)...)
+	case FuncType:
+		if !reflect.DeepEqual(a.Definition.Signature, b.Definition.Signature) {
 			changes = append(changes, Change{
 				Type:   SignatureChanged,
-				Symbol: symbolName(obj),
+				Symbol: symbolName(a),
 			})
 		}
-	case *types.Interface:
-		b := bUnderlying.(*types.Interface)
-		if len(compareMethods(false, obj, a, b)) != 0 {
+	case InterfaceType:
+		if !reflect.DeepEqual(a.Definition.Functions, b.Definition.Functions) {
 			changes = append(changes, Change{
 				Type:   InterfaceChanged,
-				Symbol: symbolName(obj),
+				Symbol: symbolName(a),
 			})
 		}
-	case *types.Basic, *types.Map, *types.Slice, *types.Array, *types.Pointer:
-		if basicType(a) != basicType(bUnderlying) {
+	case BasicType, MapType, SliceType, ArrayType, PointerType, ChanType:
+		if !reflect.DeepEqual(a.Definition, b.Definition) {
 			changes = append(changes, Change{
 				Type:   TypeChanged,
-				Symbol: symbolName(obj),
+				Symbol: symbolName(a),
 			})
 		}
+	case "":
+		return nil
 	default:
-		panic(fmt.Sprintf("unhandled type: %s", reflect.TypeOf(a)))
+		panic(fmt.Sprintf("unhandled type: %s", a.Definition.Type))
 	}
 
-	switch a := a.(type) {
-	case *types.Named:
-		changes = append(changes, compareMethods(true, obj, a, b.(*types.Named))...)
-	}
+	changes = append(changes, compareMethods(a, b)...)
 
 	return changes
 }
 
-func compareAliases(obj types.Object, a, b *types.TypeName) []Change {
-	aType := a.Type()
-	bType := b.Type()
-
-	if basicType(aType) != basicType(bType) {
+func compareAliases(a, b *Object) []Change {
+	if !reflect.DeepEqual(a.Definition, b.Definition) {
 		return []Change{{
 			Type:   TypeChanged,
-			Symbol: symbolName(obj),
+			Symbol: symbolName(a),
 		}}
 	}
 
 	return nil
 }
 
-func basicType(a fmt.Stringer) string {
-	str := a.String()
-	idx := strings.Index(str, "{")
-	if idx != -1 {
-		str = str[:idx]
-	}
-
-	idx = strings.Index(str, "(")
-	if idx != -1 {
-		str = str[:idx]
-	}
-
-	return str
-}
-
-func compareStruct(obj types.Object, a, b *types.Struct) []Change {
+func compareStruct(a, b *Object) []Change {
 	//TODO: report field order changes
 	//TODO: report struct tag changes
 
 	var changes []Change
 
-	for i := 0; i < a.NumFields(); i++ {
-		aField := a.Field(i)
-		if !aField.Exported() {
-			continue
-		}
+	for _, aField := range a.Definition.Fields {
 		found := false
-		for j := 0; j < b.NumFields(); j++ {
-			bField := b.Field(j)
-			if aField.Name() == bField.Name() {
+		for _, bField := range b.Definition.Fields {
+			if aField.Name == bField.Name {
 				found = true
-				if basicType(aField.Type().Underlying()) != basicType(bField.Type().Underlying()) {
+				if !reflect.DeepEqual(aField.Type, bField.Type) {
 					changes = append(changes, Change{
 						Type:   FieldChangedType,
-						Symbol: symbolName(obj, aField),
+						Symbol: symbolName(a, aField.Name),
 					})
 				}
 			}
@@ -206,23 +168,24 @@ func compareStruct(obj types.Object, a, b *types.Struct) []Change {
 		if !found {
 			changes = append(changes, Change{
 				Type:   FieldDeleted,
-				Symbol: symbolName(obj, aField),
+				Symbol: symbolName(a, aField.Name),
 			})
 		}
 	}
 
-	for i := 0; i < b.NumFields(); i++ {
-		bField := b.Field(i)
+	for _, bField := range b.Definition.Fields {
 		found := false
-		for j := 0; j < a.NumFields(); j++ {
-			aField := a.Field(j)
-			found = found || aField.Name() == bField.Name()
+		for _, aField := range a.Definition.Fields {
+			if aField.Name == bField.Name {
+				found = true
+				break
+			}
 		}
 
 		if !found {
 			changes = append(changes, Change{
 				Type:   FieldAdded,
-				Symbol: symbolName(obj, bField),
+				Symbol: symbolName(a, bField.Name),
 			})
 		}
 	}
@@ -235,79 +198,47 @@ type methoder interface {
 	Method(int) *types.Func
 }
 
-func signaturesAreEqualForFunc(a, b *types.Func) bool {
-	asig := a.Type().(*types.Signature)
-	bsig := b.Type().(*types.Signature)
-	return signaturesAreEqual(asig, bsig)
-}
-
-func signaturesAreEqual(a, b *types.Signature) bool {
-	return tuplesAreEqual(a.Params(), b.Params()) &&
-		tuplesAreEqual(a.Results(), b.Results())
-}
-
-func tuplesAreEqual(a, b *types.Tuple) bool {
-	if a.Len() != b.Len() {
-		return false
-	}
-
-	for i := 0; i < a.Len(); i++ {
-		ael := a.At(i)
-		bel := b.At(i)
-		if basicType(ael.Type()) != basicType(bel.Type()) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func compareMethods(exportedOnly bool, obj types.Object, a, b methoder) []Change {
+func compareMethods(a, b *Object) []Change {
 	var changes []Change
-	for i := 0; i < a.NumMethods(); i++ {
-		aMethod := a.Method(i)
-		if exportedOnly && !aMethod.Exported() {
-			continue
-		}
+	for _, aMethod := range a.Methods {
 		found := false
-		for j := 0; j < b.NumMethods(); j++ {
-			bMethod := b.Method(j)
-			if aMethod.Name() == bMethod.Name() {
+		for _, bMethod := range b.Methods {
+			if aMethod.Name == bMethod.Name {
 				found = true
-				if !signaturesAreEqualForFunc(aMethod, bMethod) {
+				if !reflect.DeepEqual(aMethod.Signature, bMethod.Signature) {
 					changes = append(changes, Change{
 						Type:   MethodSignatureChanged,
-						Symbol: symbolName(obj, aMethod),
+						Symbol: symbolName(a, aMethod.Name),
 					})
 				}
+				break
 			}
 		}
 
 		if !found {
 			changes = append(changes, Change{
 				Type:   MethodDeleted,
-				Symbol: symbolName(obj, aMethod),
+				Symbol: symbolName(a, aMethod.Name),
 			})
 		}
 	}
 
-	for i := 0; i < b.NumMethods(); i++ {
-		bMethod := b.Method(i)
-		if exportedOnly && !bMethod.Exported() {
-			continue
-		}
+	for _, bMethod := range b.Methods {
 		found := false
-		for j := 0; j < a.NumMethods(); j++ {
-			aMethod := a.Method(j)
-			found = found || aMethod.Name() == bMethod.Name()
+		for _, aMethod := range a.Methods {
+			if aMethod.Name == bMethod.Name {
+				found = true
+				break
+			}
 		}
 
 		if !found {
 			changes = append(changes, Change{
 				Type:   MethodAdded,
-				Symbol: symbolName(obj, bMethod),
+				Symbol: symbolName(b, bMethod.Name),
 			})
 		}
 	}
+
 	return changes
 }
