@@ -221,6 +221,22 @@ var CompareFixtures = []CompareFixture{{
 		Type:   InterfaceChanged,
 		Symbol: `"github.com/smola/gocompat".Interface1`,
 	}},
+}, {
+	Name: "var to const",
+	A:    "VarInit1",
+	B:    "Const1",
+	Expected: []Change{Change{
+		Type:   DeclarationTypeChanged,
+		Symbol: `"github.com/smola/gocompat".VarInit1`,
+	}},
+}, {
+	Name: "const to var",
+	A:    "Const1",
+	B:    "VarInit1",
+	Expected: []Change{Change{
+		Type:   DeclarationTypeChanged,
+		Symbol: `"github.com/smola/gocompat".Const1`,
+	}},
 }}
 
 func TestCompareObjects(t *testing.T) {

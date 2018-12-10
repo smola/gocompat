@@ -73,6 +73,14 @@ func comparePackages(checked map[*Object]bool, a, b *Package) []Change {
 
 // CompareObjects compares two objects and reports backwards incompatible changes.
 func CompareObjects(a, b *Object) []Change {
+	if a.Type != b.Type {
+		//TODO: check other changes instead of returning early
+		return []Change{{
+			Type:   DeclarationTypeChanged,
+			Symbol: symbolName(a),
+		}}
+	}
+
 	if a.Type == AliasDeclaration {
 		return compareAliases(a, b)
 	}
