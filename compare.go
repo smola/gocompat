@@ -25,7 +25,10 @@ func Compare(a, b *API) []Change {
 		}
 
 		if !found {
-			//TODO: removed package
+			changes = append(changes, Change{
+				Type:   PackageDeleted,
+				Symbol: fmt.Sprintf(`"%s"`, apkg.Path()),
+			})
 		}
 	}
 
@@ -48,8 +51,35 @@ func Compare(a, b *API) []Change {
 }
 
 func compareScopes(checked map[types.Object]bool, a, b *types.Scope) []Change {
-	//TODO
-	return nil
+	var result []Change
+	for _, name := range a.Names() {
+		aobj := a.Lookup(name)
+		checked[aobj] = true
+		bobj := b.Lookup(name)
+		if bobj == nil {
+			result = append(result, Change{
+				Type:   SymbolDeleted,
+				Symbol: symbolName(aobj),
+			})
+			continue
+		}
+
+		result = append(result, CompareObjects(aobj, bobj)...)
+	}
+
+	for _, name := range b.Names() {
+		aobj := a.Lookup(name)
+		bobj := b.Lookup(name)
+		if aobj == nil {
+			result = append(result, Change{
+				Type:   SymbolAdded,
+				Symbol: symbolName(bobj),
+			})
+			continue
+		}
+	}
+
+	return result
 }
 
 // CompareObjects compares two objects and reports backwards incompatible changes.

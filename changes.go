@@ -11,6 +11,9 @@ type ChangeType int
 
 const (
 	_ ChangeType = iota
+	PackageDeleted
+	SymbolAdded
+	SymbolDeleted
 	TypeChanged
 	FieldAdded
 	FieldDeleted
