@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/mailru/easyjson"
+
 	compat "github.com/smola/gocompat"
 	"gopkg.in/src-d/go-cli.v0"
 )
@@ -17,65 +19,66 @@ func init() {
 
 type compareCommand struct {
 	cli.Command    `name:"compare" short-desc:"List all symbols reachable from a package."`
+	Path           string   `long:"path" default:".gocompat.json" description:"path to load reference API data from"`
+	GitRefs        string   `long:"git-refs" description:"compare two git reference instead of loading form file, format is from-ref..to-ref"`
 	Exclude        []string `long:"exclude" description:"excluded change type"`
 	ExcludePackage []string `long:"exclude-package" description:"excluded package"`
 	ExcludeSymbol  []string `long:"exclude-symbol" description:"excluded symbol" unquote:"false"`
 	Go1Compat      bool     `long:"go1compat" description:"Based on Go 1 promise of compatibility. Equivalent to --exclude=SymbolAdded --exclude=FieldAdded --exclude=MethodAdded"`
 	Positional     struct {
-		From     string   `positiona-arg-name:"from" description:"from git reference"`
-		To       string   `positiona-arg-name:"to" description:"to git reference"`
 		Packages []string `positional-arg-name:"package" description:"Package to start from."`
 	} `positional-args:"yes" required:"yes"`
+
+	excluded map[compat.ChangeType]bool
 }
 
 func (c compareCommand) Execute(args []string) error {
-	excluded := make(map[compat.ChangeType]bool)
+	c.excluded = make(map[compat.ChangeType]bool)
 	for _, e := range c.Exclude {
-		c, err := compat.ChangeTypeFromString(e)
+		ct, err := compat.ChangeTypeFromString(e)
 		if err != nil {
 			return err
 		}
 
-		excluded[c] = true
+		c.excluded[ct] = true
 	}
 
 	if c.Go1Compat {
-		excluded[compat.SymbolAdded] = true
-		excluded[compat.FieldAdded] = true
-		excluded[compat.MethodAdded] = true
+		c.excluded[compat.SymbolAdded] = true
+		c.excluded[compat.FieldAdded] = true
+		c.excluded[compat.MethodAdded] = true
 	}
 
-	head, err := getHEAD()
-	if err != nil {
-		return err
+	var (
+		from, to *compat.API
+		err      error
+	)
+
+	if c.GitRefs != "" {
+		from, to, err = c.getFromGit()
+		if err != nil {
+			return err
+		}
+	} else {
+		from, err = c.getFromFile()
+		if err != nil {
+			return err
+		}
+
+		to, err = c.getCurrent()
+		if err != nil {
+			return err
+		}
 	}
 
-	defer func() {
-		gitCheckout(head)
-	}()
+	return c.compareResults(from, to)
+}
 
-	if err := gitCheckout(c.Positional.From); err != nil {
-		return err
-	}
-
-	fromReachable, err := compat.ReachableFromPackages(c.Positional.Packages...)
-	if err != nil {
-		return err
-	}
-
-	if err := gitCheckout(c.Positional.To); err != nil {
-		return err
-	}
-
-	toReachable, err := compat.ReachableFromPackages(c.Positional.Packages...)
-	if err != nil {
-		return err
-	}
-
+func (c compareCommand) compareResults(from, to *compat.API) error {
 	changed := false
-	changes := compat.Compare(fromReachable, toReachable)
+	changes := compat.Compare(from, to)
 	for _, change := range changes {
-		if excluded[change.Type] {
+		if c.excluded[change.Type] {
 			continue
 		}
 
@@ -110,6 +113,56 @@ func (c compareCommand) Execute(args []string) error {
 	}
 
 	return nil
+}
+
+func (c compareCommand) getCurrent() (*compat.API, error) {
+	return compat.ReachableFromPackages(c.Positional.Packages...)
+}
+
+func (c compareCommand) getFromFile() (from *compat.API, err error) {
+	f, err := os.Open(c.Path)
+	if err != nil {
+		return nil, err
+	}
+
+	from = &compat.API{}
+	err = easyjson.UnmarshalFromReader(f, from)
+	return
+}
+
+func (c compareCommand) getFromGit() (from, to *compat.API, err error) {
+	fields := strings.SplitN(c.GitRefs, "..", 2)
+
+	fromRef := fields[0]
+	toRef := fields[1]
+	head, err := getHEAD()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer func() {
+		gitCheckout(head)
+	}()
+
+	if err := gitCheckout(fromRef); err != nil {
+		return nil, nil, err
+	}
+
+	from, err = c.getCurrent()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := gitCheckout(toRef); err != nil {
+		return nil, nil, err
+	}
+
+	to, err = c.getCurrent()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return from, to, nil
 }
 
 func getHEAD() (string, error) {
