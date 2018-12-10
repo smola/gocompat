@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,6 +20,7 @@ type compareCommand struct {
 	Exclude        []string `long:"exclude" description:"excluded change type"`
 	ExcludePackage []string `long:"exclude-package" description:"excluded package"`
 	ExcludeSymbol  []string `long:"exclude-symbol" description:"excluded symbol" unquote:"false"`
+	Go1Compat      bool     `long:"go1compat" description:"Based on Go 1 promise of compatibility. Equivalent to --exclude=SymbolAdded --exclude=FieldAdded --exclude=MethodAdded"`
 	Positional     struct {
 		From     string   `positiona-arg-name:"from" description:"from git reference"`
 		To       string   `positiona-arg-name:"to" description:"to git reference"`
@@ -37,6 +39,21 @@ func (c compareCommand) Execute(args []string) error {
 		excluded[c] = true
 	}
 
+	if c.Go1Compat {
+		excluded[compat.SymbolAdded] = true
+		excluded[compat.FieldAdded] = true
+		excluded[compat.MethodAdded] = true
+	}
+
+	head, err := getHEAD()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		gitCheckout(head)
+	}()
+
 	if err := gitCheckout(c.Positional.From); err != nil {
 		return err
 	}
@@ -45,6 +62,7 @@ func (c compareCommand) Execute(args []string) error {
 	if err != nil {
 		return err
 	}
+
 	if err := gitCheckout(c.Positional.To); err != nil {
 		return err
 	}
@@ -92,6 +110,25 @@ func (c compareCommand) Execute(args []string) error {
 	}
 
 	return nil
+}
+
+func getHEAD() (string, error) {
+	headBytes, err := ioutil.ReadFile(".git/HEAD")
+	if err != nil {
+		return "", err
+	}
+
+	head := string(headBytes)
+	head = strings.TrimSpace(head)
+	if strings.HasPrefix(head, "ref: refs/heads/") {
+		return head[len("ref: refs/heads/"):], nil
+	}
+
+	if strings.HasPrefix(head, "ref: ") {
+		return head[len("ref: "):], nil
+	}
+
+	return head, nil
 }
 
 func gitCheckout(ref string) error {
