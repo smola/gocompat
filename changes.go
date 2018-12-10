@@ -14,6 +14,7 @@ const (
 	PackageDeleted
 	SymbolAdded
 	SymbolDeleted
+	DeclarationTypeChanged
 	TypeChanged
 	FieldAdded
 	FieldDeleted
