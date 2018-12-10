@@ -29,7 +29,7 @@ func (a *API) LookupSymbol(sym *Symbol) *Object {
 
 type Package struct {
 	Path    string             `json:"path"`
-	Objects map[string]*Object `json:"objects,omitempty"`
+	Objects map[string]*Object `json:"objects"`
 }
 
 func NewPackage(path string) *Package {

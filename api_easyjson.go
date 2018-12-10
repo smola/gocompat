@@ -357,7 +357,7 @@ func easyjsonC1cedd36EncodeGithubComSmolaGocompat2(out *jwriter.Writer, in Packa
 		}
 		out.String(string(in.Path))
 	}
-	if len(in.Objects) != 0 {
+	{
 		const prefix string = ",\"objects\":"
 		if first {
 			first = false
@@ -365,7 +365,9 @@ func easyjsonC1cedd36EncodeGithubComSmolaGocompat2(out *jwriter.Writer, in Packa
 		} else {
 			out.RawString(prefix)
 		}
-		{
+		if in.Objects == nil && (out.Flags&jwriter.NilMapAsEmpty) == 0 {
+			out.RawString(`null`)
+		} else {
 			out.RawByte('{')
 			v8First := true
 			for v8Name, v8Value := range in.Objects {
