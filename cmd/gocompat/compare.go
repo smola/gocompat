@@ -125,7 +125,7 @@ func (c compareCommand) getFromFile() (from *compat.API, err error) {
 		return nil, err
 	}
 
-	from = &compat.API{}
+	from = compat.NewAPI()
 	err = easyjson.UnmarshalFromReader(f, from)
 	return
 }
