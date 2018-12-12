@@ -53,7 +53,7 @@ func comparePackages(checked map[*Object]bool, a, b *Package) []Change {
 		}
 
 		result = append(result, Change{
-			Type:   SymbolDeleted,
+			Type:   TopLevelDeclarationDeleted,
 			Symbol: symbolName(aobj),
 		})
 	}
@@ -62,7 +62,7 @@ func comparePackages(checked map[*Object]bool, a, b *Package) []Change {
 		_, ok := a.Objects[name]
 		if !ok {
 			result = append(result, Change{
-				Type:   SymbolAdded,
+				Type:   TopLevelDeclarationAdded,
 				Symbol: symbolName(bobj),
 			})
 		}

@@ -36,7 +36,7 @@ gocompat compare --git-refs=v0.1.0..master ./...
 
 There is almost no API change in Go that is fully backwards compatibility ([see this post for more](https://blog.merovius.de/2015/07/29/backwards-compatibility-in-go.html)). By default, gocompat uses a strict approach in which most changes to exported symbols are considered incompatible. The `--exclude=` flag can be used to exclude a change type from results.
 
-Most users will probably want to use compatibility guarantees analogous to the [Go 1 compatibility promise](https://golang.org/doc/go1compat). You can use the `--go1compat` for that, which is a shorthand for `--exclude=SymbolAdded --exclude=FieldAdded --exclude=MethodAdded`. For example:
+Most users will probably want to use compatibility guarantees analogous to the [Go 1 compatibility promise](https://golang.org/doc/go1compat). You can use the `--go1compat` for that, which is a shorthand for `--exclude=TopLevelDeclarationAdded --exclude=FieldAdded --exclude=MethodAdded`. For example:
 
 ```
 gocompat compare --go1compat --from-git=v1.0.0..v1.1.0 ./...

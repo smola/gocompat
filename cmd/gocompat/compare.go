@@ -24,7 +24,7 @@ type compareCommand struct {
 	Exclude        []string `long:"exclude" description:"excluded change type"`
 	ExcludePackage []string `long:"exclude-package" description:"excluded package"`
 	ExcludeSymbol  []string `long:"exclude-symbol" description:"excluded symbol" unquote:"false"`
-	Go1Compat      bool     `long:"go1compat" description:"Based on Go 1 promise of compatibility. Equivalent to --exclude=SymbolAdded --exclude=FieldAdded --exclude=MethodAdded"`
+	Go1Compat      bool     `long:"go1compat" description:"Based on Go 1 promise of compatibility. Equivalent to --exclude=TopLevelDeclarationAdded --exclude=FieldAdded --exclude=MethodAdded"`
 	Positional     struct {
 		Packages []string `positional-arg-name:"package" description:"Package to start from."`
 	} `positional-args:"yes" required:"yes"`
@@ -44,7 +44,7 @@ func (c compareCommand) Execute(args []string) error {
 	}
 
 	if c.Go1Compat {
-		c.excluded[compat.SymbolAdded] = true
+		c.excluded[compat.TopLevelDeclarationAdded] = true
 		c.excluded[compat.FieldAdded] = true
 		c.excluded[compat.MethodAdded] = true
 	}
