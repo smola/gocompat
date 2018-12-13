@@ -4,9 +4,9 @@ package compat
 
 import "strconv"
 
-const _ChangeType_name = "PackageDeletedSymbolAddedSymbolDeletedDeclarationTypeChangedTypeChangedFieldAddedFieldDeletedFieldChangedTypeSignatureChangedMethodAddedMethodDeletedMethodSignatureChangedInterfaceChanged"
+const _ChangeType_name = "PackageDeletedTopLevelDeclarationAddedTopLevelDeclarationDeletedDeclarationTypeChangedTypeChangedFieldAddedFieldDeletedFieldChangedTypeSignatureChangedMethodAddedMethodDeletedMethodSignatureChangedInterfaceChanged"
 
-var _ChangeType_index = [...]uint8{0, 14, 25, 38, 60, 71, 81, 93, 109, 125, 136, 149, 171, 187}
+var _ChangeType_index = [...]uint8{0, 14, 38, 64, 86, 97, 107, 119, 135, 151, 162, 175, 197, 213}
 
 func (i ChangeType) String() string {
 	i -= 1
