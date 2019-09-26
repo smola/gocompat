@@ -1,5 +1,5 @@
-
 # gocompat [![godoc](https://godoc.org/github.com/smola/gocompat?status.svg)](https://godoc.org/github.com/smola/gocompat) [![Build Status](https://travis-ci.org/smola/gocompat.svg)](https://travis-ci.org/smola/gocompat) [![codecov.io](https://codecov.io/github/smola/gocompat/coverage.svg)](https://codecov.io/github/smola/gocompat)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fsmola%2Fgocompat.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fsmola%2Fgocompat?ref=badge_shield)
 
 **gocompat** is a tool to check compatibility between Go API versions.
 
@@ -47,3 +47,5 @@ If you are using [Semantic Versioning](https://semver.org/), you might want to u
 ## License
 
 Released under the terms of the Apache License Version 2.0, see [LICENSE](LICENSE).
+
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fsmola%2Fgocompat.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fsmola%2Fgocompat?ref=badge_large)
