@@ -16,10 +16,11 @@ script:
 jobs:
   include:
     - {os: linux,                         go: 1.11.x}
-    - {os: linux,                         go: tip}
+    - {os: linux,                         go: 1.12.x}
+    - {os: linux,                         go: 1.13.x}
     - {os: osx,   xcode_image: xcode10.1, go: 1.11.x}
     - stage: deploy
-      go: 1.11.x
+      go: 1.13.x
       if: tag IS present
       os: linux
       script:
