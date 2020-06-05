@@ -9,6 +9,8 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+const goLoadMode = packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles | packages.NeedImports | packages.NeedTypes | packages.NeedTypesSizes
+
 // ReachableFromPackages gets an API given list of package paths.
 func ReachableFromPackages(pkgs ...string) (*API, error) {
 	return reachableFromPackages(false, pkgs...)
@@ -39,7 +41,7 @@ func newReachability() *reachability {
 
 func (r *reachability) FromPackages(tests bool, pkgs ...string) error {
 	conf := &packages.Config{
-		Mode:  packages.LoadTypes,
+		Mode:  goLoadMode,
 		Tests: tests,
 	}
 
