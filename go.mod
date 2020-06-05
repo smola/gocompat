@@ -1,5 +1,7 @@
 module github.com/smola/gocompat
 
+go 1.11
+
 require (
 	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/kami-zh/go-capturer v0.0.0-20171211120116-e492ea43421d // indirect
@@ -14,7 +16,7 @@ require (
 	github.com/src-d/envconfig v1.0.0 // indirect
 	github.com/stretchr/testify v1.6.0
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2 // indirect
-	golang.org/x/tools v0.0.0-20181130052023-1c3d964395ce
+	golang.org/x/tools v0.0.0-20200604183345-4d5ea46c79fe
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/src-d/go-cli.v0 v0.0.0-20181105080154-d492247bbc0d
 	gopkg.in/src-d/go-log.v1 v1.0.1 // indirect

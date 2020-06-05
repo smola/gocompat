@@ -8,13 +8,17 @@ import (
 
 func init() {
 	conf := &packages.Config{
-		Mode:  packages.LoadTypes,
+		Mode:  goLoadMode,
 		Tests: true,
 	}
 
 	loadedPackages, err := packages.Load(conf, "file=fixtures_test.go")
 	if err != nil {
 		panic(err)
+	}
+
+	if len(loadedPackages) != 1 {
+		panic("expected a single loaded package")
 	}
 
 	FixtureObjects = make(map[string]types.Object)
