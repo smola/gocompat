@@ -5,7 +5,7 @@ go 1.11
 require (
 	github.com/jessevdk/go-flags v1.4.0 // indirect
 	github.com/kami-zh/go-capturer v0.0.0-20171211120116-e492ea43421d // indirect
-	github.com/mailru/easyjson v0.7.1
+	github.com/mailru/easyjson v0.7.2
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/onsi/ginkgo v1.12.3 // indirect
