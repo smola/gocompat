@@ -1,5 +1,7 @@
 
-# gocompat [![godoc](https://godoc.org/github.com/smola/gocompat?status.svg)](https://godoc.org/github.com/smola/gocompat) [![Build Status](https://travis-ci.org/smola/gocompat.svg)](https://travis-ci.org/smola/gocompat) [![codecov.io](https://codecov.io/github/smola/gocompat/coverage.svg)](https://codecov.io/github/smola/gocompat)
+# gocompat [![Go Reference](https://pkg.go.dev/badge/github.com/smola/gocompat.svg)](https://pkg.go.dev/github.com/smola/gocompat) ![Build Status](https://github.com/smola/gocompat/workflows/ci/badge.svg?branch=master) [![codecov.io](https://codecov.io/github/smola/gocompat/coverage.svg)](https://codecov.io/github/smola/gocompat)
+
+
 
 **gocompat** is a tool to check compatibility between Go API versions.
 
