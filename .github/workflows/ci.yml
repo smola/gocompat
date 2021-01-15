@@ -1,0 +1,48 @@
+name: continuous integration
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+        go: [ '1.13.x', '1.14.x', '1.15.x' ]
+    runs-on: ${{ matrix.platform }}
+    name: Test (go ${{ matrix.go }}, ${{ matrix.platform }})
+    env:
+    - CGO_ENABLED=0
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go }}
+    - name: Run tests
+      run: go test -coverprofile=coverage.txt -covermode=atomic ./...
+      shell: bash
+    - name: Upload coverage
+      uses: codecov/codecov-action@v1
+      with:
+        files: coverage.txt
+        flags: ${{ matrix.go }},${{ matrix.platform }}
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: test
+    runs-on: ubuntu-latest
+    name: Publish
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Setup Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: '1.15.x'
+    - name: Run goreleaser
+      uses: goreleaser/goreleaser-action@v2
+      with:
+        version: latest
+        args: release --rm-dist
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
