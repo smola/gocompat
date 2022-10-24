@@ -11,7 +11,7 @@ require (
 	github.com/onsi/ginkgo v1.12.3 // indirect
 	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/src-d/envconfig v1.0.0 // indirect
-	github.com/stretchr/testify v1.7.0
+	github.com/stretchr/testify v1.8.1
 	github.com/x-cray/logrus-prefixed-formatter v0.5.2 // indirect
 	golang.org/x/tools v0.0.0-20200604183345-4d5ea46c79fe
 	gopkg.in/src-d/go-cli.v0 v0.0.0-20190821111025-f9dec40d74d8
